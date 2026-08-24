@@ -3,7 +3,7 @@
 // ============================================================
 const CONFIG = {
   // URL Web App GAS selepas Deploy > New deployment (Code.gs dalam folder gas-api/)
-  API_URL: 'https://script.google.com/macros/s/AKfycbxTJAPzjpq8DzxT1GBYMzKWrTt0nEOy9k8P85Gb-RRxFFkajMyN5fTAv5FstfVa8LqV/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbwWWF5mApDPPYOZHWkiYctvDOFZVqmurEnoNZ-VJWedX95l3u1R2ScIwLDMIHZSvfh-/exec',
 
   // MESTI SAMA dengan API_SECRET dalam Code.gs. Tukar kepada rentetan rawak
   // sendiri (contoh: buka https://www.uuidgenerator.net/ dan salin satu UUID)
