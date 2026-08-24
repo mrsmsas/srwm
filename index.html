@@ -212,6 +212,28 @@
 
         <div id="admin-dashboard">
           <div class="card">
+            <div class="card-title">🔍 Tapis Log Rondaan</div>
+            <div class="field">
+              <label>Nama Warden</label>
+              <input type="text" id="filterNama" placeholder="Taip nama untuk cari...">
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label>Tarikh (hari tertentu)</label>
+                <input type="date" id="filterTarikh">
+              </div>
+              <div class="field">
+                <label>Bulan</label>
+                <input type="month" id="filterBulan">
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="loadAdminDashboard()">Papar</button>
+              <button class="btn btn-outline btn-sm" style="flex:1;" onclick="resetFilterLog()">Reset</button>
+            </div>
+          </div>
+
+          <div class="card">
             <div class="card-title">📊 Semua Log Rondaan</div>
             <button class="btn btn-outline btn-sm" style="margin-bottom:12px;" onclick="cetakLaporanPDF()">🖨️ Cetak Laporan Bergambar (PDF)</button>
             <div id="adminLogList"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
@@ -239,7 +261,7 @@
 
     </div>
 
-    <div class="footer-note">Dibangunkan Oleh Unit Pembangunan Pelajar dan Unit ICT MRSM SAS 2026</div>
+    <div class="footer-note">Dibangunkan Oleh Unit Sains dan Unit ICT MRSM SAS 2026</div>
 
     <div class="bottom-nav">
       <button class="nav-item active" id="nav-borang" onclick="switchTab('borang')">
@@ -266,7 +288,7 @@
       <div class="field"><label>Nama Penuh</label><input type="text" id="uNama"></div>
       <div class="field"><label>No. Gaji</label><input type="text" id="uNoGaji"></div>
       <div class="field"><label>No. Telefon</label><input type="text" id="uTelefon"></div>
-      <div class="field"><label>Kata Laluan</label><input type="text" id="uPassword" placeholder="Wajib untuk pengguna baharu"></div>
+      <div class="field"><label>Kata Laluan</label><input type="text" id="uPassword"></div>
       <div class="grid-2">
         <div class="field">
           <label>Role</label>
