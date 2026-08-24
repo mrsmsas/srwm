@@ -426,12 +426,27 @@ function renderLogList(logs, targetId) {
 async function loadAdminDashboard() {
   document.getElementById('adminLogList').innerHTML = skeletonHTML(4);
   try {
-    const logs = await Api.get('senaraiLog', { limit: 100 });
+    const filter = { limit: 200 };
+    const nama = document.getElementById('filterNama').value.trim();
+    const tarikh = document.getElementById('filterTarikh').value;
+    const bulan = document.getElementById('filterBulan').value;
+    if (nama) filter.nama = nama;
+    if (tarikh) filter.tarikh = tarikh;
+    if (bulan) filter.bulan = bulan;
+
+    const logs = await Api.get('senaraiLog', filter);
     allLogsCache = logs;
     renderLogList(logs, 'adminLogList');
   } catch (err) {
     document.getElementById('adminLogList').innerHTML = '<div class="empty-state">Ralat: ' + err.message + '</div>';
   }
+}
+
+function resetFilterLog() {
+  document.getElementById('filterNama').value = '';
+  document.getElementById('filterTarikh').value = '';
+  document.getElementById('filterBulan').value = '';
+  loadAdminDashboard();
 }
 
 /** ================= ADMIN: PENGGUNA ================= **/
@@ -479,8 +494,7 @@ function editUser(u) {
   document.getElementById('uNama').value = u.NamaWarden;
   document.getElementById('uNoGaji').value = u.NoGaji;
   document.getElementById('uTelefon').value = u.NoTelefon;
-  document.getElementById('uPassword').value = ''; // hash tidak dipaparkan
-  document.getElementById('uPassword').placeholder = 'Biar kosong untuk kekalkan kata laluan sedia ada';
+  document.getElementById('uPassword').value = u.Password;
   document.getElementById('uRole').value = u.Role;
   document.getElementById('uStatus').value = u.Status;
   document.getElementById('userModal').style.display = 'flex';
@@ -503,8 +517,7 @@ async function saveUser() {
     status: document.getElementById('uStatus').value
   };
   const rowIndex = document.getElementById('uRowIndex').value;
-  // Untuk pengguna BAHARU, password wajib. Untuk EDIT, boleh kosong (kekal lama).
-  if (!data.nama || !data.noGaji || (!rowIndex && !data.password)) {
+  if (!data.nama || !data.noGaji || !data.password) {
     showToast('Sila lengkapkan maklumat wajib.');
     return;
   }
