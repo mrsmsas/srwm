@@ -4,9 +4,7 @@
 const Api = {
   async get(action, params) {
     params = params || {};
-    const qs = new URLSearchParams(Object.assign(
-      { action: action, secret: CONFIG.API_SECRET }, params
-    )).toString();
+    const qs = new URLSearchParams(Object.assign({ action: action }, params)).toString();
     const res = await fetch(CONFIG.API_URL + '?' + qs, { method: 'GET' });
     const json = await res.json();
     if (!json.success) throw new Error(json.message || 'Ralat API');
@@ -19,7 +17,6 @@ const Api = {
   async post(action, body) {
     body = body || {};
     body.action = action;
-    body.secret = CONFIG.API_SECRET;
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
