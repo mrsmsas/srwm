@@ -3,17 +3,17 @@
 // ============================================================
 const CONFIG = {
   // URL Web App GAS selepas Deploy > New deployment (Code.gs dalam folder gas-api/)
-  API_URL: 'https://script.google.com/macros/s/MASUKKAN_DEPLOYMENT_ID/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxTJAPzjpq8DzxT1GBYMzKWrTt0nEOy9k8P85Gb-RRxFFkajMyN5fTAv5FstfVa8LqV/exec',
 
   // MESTI SAMA dengan API_SECRET dalam Code.gs. Tukar kepada rentetan rawak
   // sendiri (contoh: buka https://www.uuidgenerator.net/ dan salin satu UUID)
-  API_SECRET: 'TUKAR_KEPADA_KUNCI_RAWAK_ANDA_SENDIRI',
+  API_SECRET: 'r0vnYpdipR-4k1mnjIEWeyVfrJo',
 
   // Daftar percuma di https://cloudinary.com -> Dashboard -> Cloud Name
-  CLOUDINARY_CLOUD_NAME: 'MASUKKAN_CLOUD_NAME',
+  CLOUDINARY_CLOUD_NAME: 'a4qxpglv',
 
   // Settings > Upload > Upload presets > Add upload preset -> Signing Mode: Unsigned
-  CLOUDINARY_UPLOAD_PRESET: 'MASUKKAN_UPLOAD_PRESET',
+  CLOUDINARY_UPLOAD_PRESET: 'eRondaanMalam',
 
   // Log masuk automatik luput selepas berapa jam tanpa aktiviti (keselamatan
   // untuk peranti dikongsi)
