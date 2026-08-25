@@ -374,7 +374,10 @@ function switchTab(tab) {
     if (navEl) navEl.classList.toggle('active', t === tab);
   });
   if (tab === 'sejarah') loadSejarah();
-  if (tab === 'admin') loadAdminDashboard();
+  if (tab === 'admin') {
+    loadAdminDashboard();
+    loadFilterNamaOptions();
+  }
 }
 
 function switchAdminTab(tab) {
@@ -408,28 +411,104 @@ function renderLogList(logs, targetId) {
     el.innerHTML = '<div class="empty-state">Tiada rekod lagi.</div>';
     return;
   }
-  el.innerHTML = logs.map(function (l) {
+  const bolehKlik = targetId === 'adminLogList';
+  el.innerHTML = logs.map(function (l, idx) {
     const isEmergency = l.Kecemasan === 'YA - SEGERA';
-    return '<div class="log-item">' +
+    const ada_gambar = l.GambarURL && String(l.GambarURL).trim().length > 0;
+    return '<div class="log-item"' + (bolehKlik ? ' style="cursor:pointer;" onclick="openLogDetail(' + targetId + 'Cache[' + idx + '])"' : '') + '>' +
       '<div class="log-item-top">' +
       '<span class="log-item-name">' + l.NamaWarden + '</span>' +
       '<span class="badge ' + (isEmergency ? 'badge-emergency' : 'badge-ok') + '">' +
       (isEmergency ? '🚨 Kecemasan' : 'Selesai') + '</span>' +
       '</div>' +
-      '<div class="log-item-date">' + l.Tarikh + ' • ' + l.SesiRondaan + ' • ' + l.MasaMula + '</div>' +
+      '<div class="log-item-date">' + l.Tarikh + ' • ' + l.SesiRondaan + ' • ' + l.MasaMula +
+      (ada_gambar ? ' • 📷 ' + String(l.GambarURL).split(',').length + ' gambar' : '') + '</div>' +
       (l.Aduan ? '<div style="font-size:12.5px;margin-top:6px;">💬 ' + l.Aduan + '</div>' : '') +
       '</div>';
   }).join('');
+  // simpan rujukan data penuh untuk dipetik semula bila diklik (elak masalah escape watak dalam onclick)
+  window[targetId + 'Cache'] = logs;
+}
+
+/** ================= MODAL: PREVIEW LAPORAN BERGAMBAR ================= **/
+function openLogDetail(l) {
+  if (!l) return;
+  const isEmergency = l.Kecemasan === 'YA - SEGERA';
+  const semakan = [
+    ['🥛 Minum Malam', l.MinumMalam], ['🔒 Pagar Dikunci', l.PagarKunci],
+    ['💡 Lampu Bilik', l.LampuBilik], ['🏮 Lampu Koridor', l.LampuKoridor],
+    ['🛌 Dalam Dorm', l.DalamDorm], ['🔇 Tiada Bising', l.TiadaBising],
+    ['😴 Bersedia Tidur', l.BersediaTidur], ['🤝 Tiada Buli', l.TiadaBuli],
+    ['🧯 Semak Kebakaran', l.SemakKebakaran], ['🚿 Tandas Bersih', l.TandasBersih]
+  ];
+  const semakanHTML = semakan.map(function (s) {
+    const ok = s[1] === 'Ya';
+    return '<div class="checklist-item" style="padding:9px 2px;">' +
+      '<span class="checklist-label" style="font-size:13px;">' + s[0] + '</span>' +
+      '<span class="badge ' + (ok ? 'badge-ok' : 'badge-emergency') + '">' + (s[1] || '-') + '</span>' +
+      '</div>';
+  }).join('');
+
+  const urls = (l.GambarURL || '').split(',').map(function (u) { return u.trim(); }).filter(Boolean);
+  const gambarHTML = urls.length > 0
+    ? '<div class="photo-upload" style="margin-top:8px;">' +
+      urls.map(function (u) {
+        return '<a href="' + u + '" target="_blank" rel="noopener"><img class="photo-thumb" style="width:88px;height:88px;" src="' + u + '"></a>';
+      }).join('') + '</div>'
+    : '<div class="empty-state" style="padding:16px;">Tiada gambar dimuat naik untuk log ini.</div>';
+
+  const content = document.getElementById('logDetailContent');
+  content.innerHTML =
+    '<div class="card-title">' + l.NamaWarden + (isEmergency ? ' <span class="badge badge-emergency" style="margin-left:6px;">🚨 Kecemasan</span>' : '') + '</div>' +
+    '<div style="font-size:12.5px;color:var(--text-soft);margin-bottom:14px;">' +
+    l.Tarikh + ' • ' + l.SesiRondaan + ' • ' + l.MasaMula + ' - ' + (l.MasaTamat || '-') + '</div>' +
+    (l.BilPelajarSakit ? '<div style="font-size:13px;margin-bottom:8px;">🩺 Pelajar sakit/tidak sihat: <b>' + l.BilPelajarSakit + '</b></div>' : '') +
+    (l.Aduan ? '<div style="font-size:13px;margin-bottom:8px;background:var(--danger-bg);color:var(--danger);padding:10px 12px;border-radius:10px;">⚠️ ' + l.Aduan + '</div>' : '') +
+    (l.Catatan ? '<div style="font-size:13px;margin-bottom:10px;">📝 ' + l.Catatan + '</div>' : '') +
+    '<div class="card-title" style="font-size:13px;margin-top:14px;">✅ Log Pemeriksaan</div>' +
+    semakanHTML +
+    '<div class="card-title" style="font-size:13px;margin-top:16px;">📷 Gambar Bukti</div>' +
+    gambarHTML;
+
+  document.getElementById('logDetailModal').style.display = 'flex';
+}
+
+function closeLogDetail() {
+  document.getElementById('logDetailModal').style.display = 'none';
+}
+function closeLogDetailOutside(e) {
+  if (e.target.id === 'logDetailModal') closeLogDetail();
 }
 
 /** ================= ADMIN: DASHBOARD ================= **/
+/** Isi dropdown penapis nama warden (dipanggil sekali bila masuk tab Admin) */
+async function loadFilterNamaOptions() {
+  const sel = document.getElementById('filterNama');
+  if (!sel || sel.dataset.loaded === 'true') return; // elak fetch berulang
+  try {
+    const namaList = await Api.get('senaraiNamaWarden');
+    namaList.forEach(function (nama) {
+      const opt = document.createElement('option');
+      opt.value = nama;
+      opt.textContent = nama;
+      sel.appendChild(opt);
+    });
+    sel.dataset.loaded = 'true';
+  } catch (err) {
+    console.error('Gagal muat senarai nama warden:', err.message);
+  }
+}
+
 async function loadAdminDashboard() {
   document.getElementById('adminLogList').innerHTML = skeletonHTML(4);
   try {
     const filter = { limit: 200 };
-    const nama = document.getElementById('filterNama').value.trim();
-    const tarikh = document.getElementById('filterTarikh').value;
-    const bulan = document.getElementById('filterBulan').value;
+    const namaEl = document.getElementById('filterNama');
+    const tarikhEl = document.getElementById('filterTarikh');
+    const bulanEl = document.getElementById('filterBulan');
+    const nama = namaEl ? namaEl.value.trim() : '';
+    const tarikh = tarikhEl ? tarikhEl.value : '';
+    const bulan = bulanEl ? bulanEl.value : '';
     if (nama) filter.nama = nama;
     if (tarikh) filter.tarikh = tarikh;
     if (bulan) filter.bulan = bulan;
@@ -443,9 +522,12 @@ async function loadAdminDashboard() {
 }
 
 function resetFilterLog() {
-  document.getElementById('filterNama').value = '';
-  document.getElementById('filterTarikh').value = '';
-  document.getElementById('filterBulan').value = '';
+  const namaEl = document.getElementById('filterNama');
+  const tarikhEl = document.getElementById('filterTarikh');
+  const bulanEl = document.getElementById('filterBulan');
+  if (namaEl) namaEl.value = '';
+  if (tarikhEl) tarikhEl.value = '';
+  if (bulanEl) bulanEl.value = '';
   loadAdminDashboard();
 }
 
