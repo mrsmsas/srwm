@@ -415,14 +415,17 @@ function renderLogList(logs, targetId) {
   el.innerHTML = logs.map(function (l, idx) {
     const isEmergency = l.Kecemasan === 'YA - SEGERA';
     const ada_gambar = l.GambarURL && String(l.GambarURL).trim().length > 0;
-    return '<div class="log-item"' + (bolehKlik ? ' style="cursor:pointer;" onclick="openLogDetail(' + targetId + 'Cache[' + idx + '])"' : '') + '>' +
+    const namaHTML = bolehKlik
+      ? '<span class="log-item-name" style="color:var(--primary);text-decoration:underline;cursor:pointer;" onclick="openLogDetail(' + targetId + 'Cache[' + idx + '])">' + l.NamaWarden + ' →</span>'
+      : '<span class="log-item-name">' + l.NamaWarden + '</span>';
+    return '<div class="log-item">' +
       '<div class="log-item-top">' +
-      '<span class="log-item-name">' + l.NamaWarden + '</span>' +
+      namaHTML +
       '<span class="badge ' + (isEmergency ? 'badge-emergency' : 'badge-ok') + '">' +
       (isEmergency ? '🚨 Kecemasan' : 'Selesai') + '</span>' +
       '</div>' +
       '<div class="log-item-date">' + l.Tarikh + ' • ' + l.SesiRondaan + ' • ' + l.MasaMula +
-      (ada_gambar ? ' • 📷 ' + String(l.GambarURL).split(',').length + ' gambar' : '') + '</div>' +
+      (ada_gambar ? ' • 📷 ' + String(l.GambarURL).split(',').length + ' gambar' : ' • 📷 tiada gambar') + '</div>' +
       (l.Aduan ? '<div style="font-size:12.5px;margin-top:6px;">💬 ' + l.Aduan + '</div>' : '') +
       '</div>';
   }).join('');
@@ -431,8 +434,11 @@ function renderLogList(logs, targetId) {
 }
 
 /** ================= MODAL: PREVIEW LAPORAN BERGAMBAR ================= **/
+let logDetailSemasa = null; // simpan log yang sedang dibuka, untuk cetak PDF individu
+
 function openLogDetail(l) {
   if (!l) return;
+  logDetailSemasa = l;
   const isEmergency = l.Kecemasan === 'YA - SEGERA';
   const semakan = [
     ['🥛 Minum Malam', l.MinumMalam], ['🔒 Pagar Dikunci', l.PagarKunci],
@@ -475,19 +481,26 @@ function openLogDetail(l) {
 
 function closeLogDetail() {
   document.getElementById('logDetailModal').style.display = 'none';
+  logDetailSemasa = null;
 }
 function closeLogDetailOutside(e) {
   if (e.target.id === 'logDetailModal') closeLogDetail();
 }
 
 /** ================= ADMIN: DASHBOARD ================= **/
-/** Isi dropdown penapis nama warden (dipanggil sekali bila masuk tab Admin) */
+/** Isi dropdown penapis nama warden - guna 'senaraiWarden' (action sedia ada,
+ *  elak perlukan redeploy Code.gs untuk action baharu) */
 async function loadFilterNamaOptions() {
   const sel = document.getElementById('filterNama');
   if (!sel || sel.dataset.loaded === 'true') return; // elak fetch berulang
   try {
-    const namaList = await Api.get('senaraiNamaWarden');
-    namaList.forEach(function (nama) {
+    const wardenList = await Api.get('senaraiWarden');
+    const namaUnik = [];
+    wardenList.forEach(function (w) {
+      if (w.NamaWarden && namaUnik.indexOf(w.NamaWarden) === -1) namaUnik.push(w.NamaWarden);
+    });
+    namaUnik.sort();
+    namaUnik.forEach(function (nama) {
       const opt = document.createElement('option');
       opt.value = nama;
       opt.textContent = nama;
@@ -496,6 +509,7 @@ async function loadFilterNamaOptions() {
     sel.dataset.loaded = 'true';
   } catch (err) {
     console.error('Gagal muat senarai nama warden:', err.message);
+    showToast('Gagal muat senarai warden untuk penapis: ' + err.message);
   }
 }
 
@@ -628,51 +642,132 @@ async function deleteUser(rowIndex) {
   }
 }
 
-/** ================= CETAK LAPORAN PDF ================= **/
-function cetakLaporanPDF() {
-  if (!allLogsCache || allLogsCache.length === 0) {
-    showToast('Tiada data untuk dicetak.');
+/** ================= CETAK LAPORAN PDF - INDIVIDU BERGAMBAR ================= **/
+/** Tukar URL gambar (Cloudinary) kepada data URL supaya boleh disisip dalam PDF */
+async function urlKeDataURL(url) {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function () { resolve(reader.result); };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function cetakLaporanIndividuPDF() {
+  const l = logDetailSemasa;
+  if (!l) {
+    showToast('Tiada log dipilih untuk dicetak.');
     return;
   }
   showToast('Menjana PDF...');
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  let y = 15;
+  let y = 18;
 
   doc.setFontSize(16);
-  doc.text('Laporan Rondaan Warden Malam - MRSM SAS', 14, y);
+  doc.setFont(undefined, 'bold');
+  doc.text('Laporan Rondaan Warden Malam', 14, y);
   y += 6;
   doc.setFontSize(10);
-  doc.text('Dijana pada: ' + new Date().toLocaleString('ms-MY'), 14, y);
+  doc.setFont(undefined, 'normal');
+  doc.text('MRSM Sultan Azlan Shah', 14, y);
   y += 10;
 
-  allLogsCache.forEach(function (l, idx) {
-    if (y > 260) { doc.addPage(); y = 15; }
-    doc.setFontSize(11);
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'bold');
+  doc.text(l.NamaWarden + ' (' + l.NoGaji + ')', 14, y);
+  y += 6;
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  doc.text('Tarikh: ' + l.Tarikh + '   Sesi: ' + l.SesiRondaan, 14, y);
+  y += 5;
+  doc.text('Masa: ' + l.MasaMula + ' - ' + (l.MasaTamat || '-'), 14, y);
+  y += 7;
+
+  if (l.Kecemasan === 'YA - SEGERA') {
+    doc.setTextColor(210, 40, 40);
     doc.setFont(undefined, 'bold');
-    doc.text((idx + 1) + '. ' + l.NamaWarden + ' (' + l.NoGaji + ')', 14, y);
+    doc.text('*** LAPORAN KECEMASAN ***', 14, y);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    y += 7;
+  }
+
+  doc.setFont(undefined, 'bold');
+  doc.text('Log Pemeriksaan:', 14, y);
+  y += 5;
+  doc.setFont(undefined, 'normal');
+  const semakan = [
+    'Minum Malam: ' + l.MinumMalam, 'Pagar Dikunci: ' + l.PagarKunci,
+    'Lampu Bilik: ' + l.LampuBilik, 'Lampu Koridor: ' + l.LampuKoridor,
+    'Dalam Dorm: ' + l.DalamDorm, 'Tiada Bising: ' + l.TiadaBising,
+    'Bersedia Tidur: ' + l.BersediaTidur, 'Tiada Buli: ' + l.TiadaBuli,
+    'Semak Kebakaran: ' + l.SemakKebakaran, 'Tandas Bersih: ' + l.TandasBersih
+  ];
+  semakan.forEach(function (s, idx) {
+    const kolX = idx % 2 === 0 ? 14 : 108;
+    if (idx % 2 === 0 && idx > 0) y += 5;
+    doc.text('• ' + s, kolX, y);
+  });
+  y += 9;
+
+  if (l.BilPelajarSakit) {
+    doc.text('Pelajar sakit/tidak sihat: ' + l.BilPelajarSakit, 14, y);
+    y += 6;
+  }
+  if (l.Aduan) {
+    doc.setFont(undefined, 'bold');
+    doc.text('Aduan/Insiden:', 14, y);
     y += 5;
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.text('Tarikh: ' + l.Tarikh + '  |  Sesi: ' + l.SesiRondaan + '  |  Masa: ' + l.MasaMula + ' - ' + l.MasaTamat, 14, y);
+    const aduanLines = doc.splitTextToSize(String(l.Aduan), 180);
+    doc.text(aduanLines, 14, y);
+    y += aduanLines.length * 5 + 3;
+  }
+  if (l.Catatan) {
+    doc.setFont(undefined, 'bold');
+    doc.text('Catatan:', 14, y);
     y += 5;
-    if (l.Aduan) {
-      doc.text('Aduan: ' + String(l.Aduan).slice(0, 90), 14, y);
-      y += 5;
-    }
-    if (l.Kecemasan === 'YA - SEGERA') {
-      doc.setTextColor(200, 30, 30);
-      doc.text('*** LAPORAN KECEMASAN ***', 14, y);
-      doc.setTextColor(0, 0, 0);
-      y += 5;
-    }
-    doc.text('Status Semakan: Minum(' + l.MinumMalam + ') Pagar(' + l.PagarKunci + ') Lampu Bilik(' + l.LampuBilik +
-      ') Dorm(' + l.DalamDorm + ') Kebakaran(' + l.SemakKebakaran + ')', 14, y);
-    y += 7;
-    doc.setDrawColor(220, 220, 220);
-    doc.line(14, y, 196, y);
-    y += 5;
-  });
+    doc.setFont(undefined, 'normal');
+    const catatanLines = doc.splitTextToSize(String(l.Catatan), 180);
+    doc.text(catatanLines, 14, y);
+    y += catatanLines.length * 5 + 3;
+  }
 
-  doc.save('Laporan_Rondaan_Malam_' + new Date().toISOString().slice(0, 10) + '.pdf');
+  // Sisipkan gambar sebenar
+  const urls = (l.GambarURL || '').split(',').map(function (u) { return u.trim(); }).filter(Boolean);
+  if (urls.length > 0) {
+    y += 4;
+    doc.setFont(undefined, 'bold');
+    doc.text('Gambar Bukti (' + urls.length + '):', 14, y);
+    y += 6;
+    doc.setFont(undefined, 'normal');
+
+    const gambarW = 85, gambarH = 65, gap = 8;
+    let x = 14;
+    for (let i = 0; i < urls.length; i++) {
+      if (y + gambarH > 280) { doc.addPage(); y = 18; }
+      try {
+        const dataUrl = await urlKeDataURL(urls[i]);
+        doc.addImage(dataUrl, 'JPEG', x, y, gambarW, gambarH);
+      } catch (e) {
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(x, y, gambarW, gambarH);
+        doc.setFontSize(8);
+        doc.text('Gagal muat gambar', x + 10, y + gambarH / 2);
+      }
+      if (x === 14) {
+        x = 14 + gambarW + gap;
+      } else {
+        x = 14;
+        y += gambarH + gap;
+      }
+    }
+  }
+
+  const namaFail = 'Laporan_' + l.NamaWarden.replace(/[^a-zA-Z0-9]/g, '_') + '_' + l.Tarikh + '.pdf';
+  doc.save(namaFail);
 }
