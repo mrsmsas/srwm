@@ -215,7 +215,9 @@
             <div class="card-title">🔍 Tapis Log Rondaan</div>
             <div class="field">
               <label>Nama Warden</label>
-              <input type="text" id="filterNama" placeholder="Taip nama untuk cari...">
+              <select id="filterNama">
+                <option value="">Semua Warden</option>
+              </select>
             </div>
             <div class="grid-2">
               <div class="field">
@@ -301,6 +303,15 @@
       </div>
       <button class="btn btn-primary" onclick="saveUser()">Simpan</button>
       <button class="btn btn-outline" style="margin-top:8px;" onclick="closeUserModal()">Batal</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: PREVIEW LAPORAN BERGAMBAR ============ -->
+  <div id="logDetailModal" class="modal-overlay" style="display:none;" onclick="closeLogDetailOutside(event)">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div id="logDetailContent"></div>
+      <button class="btn btn-outline" style="margin-top:14px;" onclick="closeLogDetail()">Tutup</button>
     </div>
   </div>
 
