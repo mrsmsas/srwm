@@ -642,6 +642,18 @@ async function deleteUser(rowIndex) {
   }
 }
 
+/** Tukar tarikh (format 'dd/MM/yyyy' ATAU 'yyyy-MM-dd') kepada angka sahaja
+ *  dalam susunan yyyyMMdd - untuk No. Rujukan & nama fail yang konsisten */
+function tarikhKeAngka(tarikhStr) {
+  const s = String(tarikhStr || '');
+  const bahagian = s.split(/[\/\-]/);
+  if (bahagian.length === 3) {
+    if (bahagian[0].length === 4) return bahagian.join(''); // yyyy-MM-dd
+    return bahagian[2] + bahagian[1] + bahagian[0]; // dd/MM/yyyy -> yyyyMMdd
+  }
+  return s.replace(/[^0-9]/g, '');
+}
+
 /** ================= CETAK LAPORAN PDF - REKA BENTUK PROFESIONAL ================= **/
 /** Tukar URL gambar (Cloudinary) kepada data URL supaya boleh disisip dalam PDF */
 async function urlKeDataURL(url) {
@@ -770,7 +782,7 @@ async function cetakLaporanIndividuPDF() {
   doc.setTextColor.apply(doc, PDF_KELABU);
   doc.setFont(undefined, 'normal');
   doc.setFontSize(7.5);
-  const idRujukan = 'RD-' + l.Tarikh.replace(/-/g, '') + '-' + String(l.ID || '').slice(-4);
+  const idRujukan = 'RD-' + tarikhKeAngka(l.Tarikh) + '-' + String(l.ID || '').slice(-4);
   doc.text('No. Rujukan: ' + idRujukan, MARGIN_X + LEBAR, y + 4, { align: 'right' });
   doc.text('Dijana: ' + new Date().toLocaleString('ms-MY'), MARGIN_X + LEBAR, y + 8, { align: 'right' });
   doc.setTextColor(0, 0, 0);
@@ -1002,6 +1014,6 @@ async function cetakLaporanIndividuPDF() {
     doc.setTextColor(0, 0, 0);
   }
 
-  const namaFail = 'Laporan_' + l.NamaWarden.replace(/[^a-zA-Z0-9]/g, '_') + '_' + l.Tarikh + '.pdf';
+  const namaFail = 'Laporan_' + l.NamaWarden.replace(/[^a-zA-Z0-9]/g, '_') + '_' + tarikhKeAngka(l.Tarikh) + '.pdf';
   doc.save(namaFail);
 }
