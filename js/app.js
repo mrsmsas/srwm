@@ -705,6 +705,39 @@ function lukisLencanaStatus(doc, teks, x, y) {
   doc.setFont(undefined, 'normal');
 }
 
+/** Lukis kotak biru placeholder "MRSM SAS" - fallback jika logo belum diupload/gagal muat */
+function lukisLogoFallback(doc, y) {
+  doc.setFillColor.apply(doc, PDF_BIRU);
+  doc.rect(MARGIN_X, y, 12, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(6);
+  doc.setFont(undefined, 'bold');
+  doc.text('MRSM', MARGIN_X + 6, y + 5, { align: 'center' });
+  doc.text('SAS', MARGIN_X + 6, y + 8.5, { align: 'center' });
+  doc.setFont(undefined, 'normal');
+}
+
+/** Cuba muat logo sebenar dari assets/. Pulangkan null jika tiada/gagal (guna fallback). */
+let _logoDataURLCache = undefined; // cache supaya tak fetch berulang setiap kali cetak
+async function muatLogoDataURL() {
+  if (_logoDataURLCache !== undefined) return _logoDataURLCache;
+  try {
+    const res = await fetch('assets/logo-mrsm-sas.png');
+    if (!res.ok) { _logoDataURLCache = null; return null; }
+    const blob = await res.blob();
+    _logoDataURLCache = await new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return _logoDataURLCache;
+  } catch (e) {
+    _logoDataURLCache = null;
+    return null;
+  }
+}
+
 async function cetakLaporanIndividuPDF() {
   const l = logDetailSemasa;
   if (!l) {
@@ -718,15 +751,19 @@ async function cetakLaporanIndividuPDF() {
   let y = 15;
 
   // ===== HEADER =====
-  doc.setFillColor.apply(doc, PDF_BIRU);
-  doc.rect(MARGIN_X, y, 12, 12, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(6);
-  doc.setFont(undefined, 'bold');
-  doc.text('MRSM', MARGIN_X + 6, y + 5, { align: 'center' });
-  doc.text('SAS', MARGIN_X + 6, y + 8.5, { align: 'center' });
+  const logoDataURL = await muatLogoDataURL();
+  if (logoDataURL) {
+    try {
+      doc.addImage(logoDataURL, 'PNG', MARGIN_X, y, 12, 12);
+    } catch (e) {
+      lukisLogoFallback(doc, y);
+    }
+  } else {
+    lukisLogoFallback(doc, y);
+  }
   doc.setTextColor.apply(doc, PDF_BIRU);
   doc.setFontSize(11.5);
+  doc.setFont(undefined, 'bold');
   doc.text('MAKTAB RENDAH SAINS MARA', MARGIN_X + 16, y + 5);
   doc.text('SULTAN AZLAN SHAH', MARGIN_X + 16, y + 10);
 
