@@ -642,7 +642,7 @@ async function deleteUser(rowIndex) {
   }
 }
 
-/** ================= CETAK LAPORAN PDF - INDIVIDU BERGAMBAR ================= **/
+/** ================= CETAK LAPORAN PDF - REKA BENTUK PROFESIONAL ================= **/
 /** Tukar URL gambar (Cloudinary) kepada data URL supaya boleh disisip dalam PDF */
 async function urlKeDataURL(url) {
   const res = await fetch(url);
@@ -655,6 +655,56 @@ async function urlKeDataURL(url) {
   });
 }
 
+// Palet warna laporan (biru & putih)
+const PDF_BIRU = [26, 77, 158];
+const PDF_BIRU_MUDA = [91, 155, 213];
+const PDF_BIRU_GELAP_TEKS = [13, 42, 82];
+const PDF_HIJAU = [15, 122, 79];
+const PDF_HIJAU_BG = [220, 245, 232];
+const PDF_MERAH = [161, 38, 38];
+const PDF_MERAH_BG = [253, 226, 226];
+const PDF_KELABU = [119, 119, 119];
+const PDF_KELABU_TERANG = [216, 216, 216];
+
+const MARGIN_X = 15;
+const LEBAR = 180; // lebar kandungan (A4 = 210mm, margin 15 setiap sisi)
+
+/** Lukis bar tajuk seksyen (biru penuh, teks putih) - pulangkan y selepas bar */
+function lukisTajukSeksyen(doc, huruf, tajuk, y) {
+  doc.setFillColor.apply(doc, PDF_BIRU);
+  doc.rect(MARGIN_X, y, LEBAR, 7, 'F');
+  doc.setFillColor.apply(doc, PDF_BIRU_MUDA);
+  doc.circle(MARGIN_X + 4.5, y + 3.5, 2.6, 'F');
+  doc.setTextColor.apply(doc, PDF_BIRU_GELAP_TEKS);
+  doc.setFontSize(8.5);
+  doc.setFont(undefined, 'bold');
+  doc.text(huruf, MARGIN_X + 4.5, y + 4.6, { align: 'center' });
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10.5);
+  doc.text(tajuk, MARGIN_X + 10, y + 4.9);
+  doc.setTextColor(0, 0, 0);
+  return y + 7;
+}
+
+/** Lukis sempadan badan seksyen (garis sahaja, tiada isi) */
+function lukisSempadanBadan(doc, yMula, tinggi) {
+  doc.setDrawColor.apply(doc, PDF_KELABU_TERANG);
+  doc.rect(MARGIN_X, yMula, LEBAR, tinggi);
+}
+
+function lukisLencanaStatus(doc, teks, x, y) {
+  const ok = teks === 'Ya';
+  doc.setFillColor.apply(doc, ok ? PDF_HIJAU_BG : PDF_MERAH_BG);
+  const w = ok ? 10 : 15;
+  doc.roundedRect(x, y - 3.2, w, 4.4, 2, 2, 'F');
+  doc.setTextColor.apply(doc, ok ? PDF_HIJAU : PDF_MERAH);
+  doc.setFontSize(7.5);
+  doc.setFont(undefined, 'bold');
+  doc.text(String(teks || '-').toUpperCase(), x + w / 2, y - 0.2, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(undefined, 'normal');
+}
+
 async function cetakLaporanIndividuPDF() {
   const l = logDetailSemasa;
   if (!l) {
@@ -665,107 +715,254 @@ async function cetakLaporanIndividuPDF() {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  let y = 18;
+  let y = 15;
 
-  doc.setFontSize(16);
+  // ===== HEADER =====
+  doc.setFillColor.apply(doc, PDF_BIRU);
+  doc.rect(MARGIN_X, y, 12, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(6);
   doc.setFont(undefined, 'bold');
-  doc.text('Laporan Rondaan Warden Malam', 14, y);
-  y += 6;
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
-  doc.text('MRSM Sultan Azlan Shah', 14, y);
-  y += 10;
+  doc.text('MRSM', MARGIN_X + 6, y + 5, { align: 'center' });
+  doc.text('SAS', MARGIN_X + 6, y + 8.5, { align: 'center' });
+  doc.setTextColor.apply(doc, PDF_BIRU);
+  doc.setFontSize(11.5);
+  doc.text('MAKTAB RENDAH SAINS MARA', MARGIN_X + 16, y + 5);
+  doc.text('SULTAN AZLAN SHAH', MARGIN_X + 16, y + 10);
 
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
-  doc.text(l.NamaWarden + ' (' + l.NoGaji + ')', 14, y);
-  y += 6;
+  doc.setTextColor.apply(doc, PDF_KELABU);
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(10);
-  doc.text('Tarikh: ' + l.Tarikh + '   Sesi: ' + l.SesiRondaan, 14, y);
+  doc.setFontSize(7.5);
+  const idRujukan = 'RD-' + l.Tarikh.replace(/-/g, '') + '-' + String(l.ID || '').slice(-4);
+  doc.text('No. Rujukan: ' + idRujukan, MARGIN_X + LEBAR, y + 4, { align: 'right' });
+  doc.text('Dijana: ' + new Date().toLocaleString('ms-MY'), MARGIN_X + LEBAR, y + 8, { align: 'right' });
+  doc.setTextColor(0, 0, 0);
+
+  y += 15;
+  doc.setDrawColor.apply(doc, PDF_BIRU);
+  doc.setLineWidth(0.8);
+  doc.line(MARGIN_X, y, MARGIN_X + LEBAR, y);
+  doc.setLineWidth(0.2);
+  y += 8;
+
+  // ===== TAJUK LAPORAN =====
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text('LAPORAN RONDAAN WARDEN MALAM', MARGIN_X + LEBAR / 2, y, { align: 'center' });
   y += 5;
-  doc.text('Masa: ' + l.MasaMula + ' - ' + (l.MasaTamat || '-'), 14, y);
-  y += 7;
-
-  if (l.Kecemasan === 'YA - SEGERA') {
-    doc.setTextColor(210, 40, 40);
-    doc.setFont(undefined, 'bold');
-    doc.text('*** LAPORAN KECEMASAN ***', 14, y);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'normal');
-    y += 7;
-  }
-
-  doc.setFont(undefined, 'bold');
-  doc.text('Log Pemeriksaan:', 14, y);
-  y += 5;
+  doc.setFontSize(8.5);
   doc.setFont(undefined, 'normal');
-  const semakan = [
-    'Minum Malam: ' + l.MinumMalam, 'Pagar Dikunci: ' + l.PagarKunci,
-    'Lampu Bilik: ' + l.LampuBilik, 'Lampu Koridor: ' + l.LampuKoridor,
-    'Dalam Dorm: ' + l.DalamDorm, 'Tiada Bising: ' + l.TiadaBising,
-    'Bersedia Tidur: ' + l.BersediaTidur, 'Tiada Buli: ' + l.TiadaBuli,
-    'Semak Kebakaran: ' + l.SemakKebakaran, 'Tandas Bersih: ' + l.TandasBersih
-  ];
-  semakan.forEach(function (s, idx) {
-    const kolX = idx % 2 === 0 ? 14 : 108;
-    if (idx % 2 === 0 && idx > 0) y += 5;
-    doc.text('• ' + s, kolX, y);
-  });
+  doc.setTextColor.apply(doc, PDF_KELABU);
+  doc.text('Sistem Pemeriksaan Warden Malam — Laporan Individu', MARGIN_X + LEBAR / 2, y, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
   y += 9;
 
-  if (l.BilPelajarSakit) {
-    doc.text('Pelajar sakit/tidak sihat: ' + l.BilPelajarSakit, 14, y);
-    y += 6;
-  }
-  if (l.Aduan) {
-    doc.setFont(undefined, 'bold');
-    doc.text('Aduan/Insiden:', 14, y);
-    y += 5;
+  // ===== SEKSYEN A: MAKLUMAT AM =====
+  y = lukisTajukSeksyen(doc, 'A', 'MAKLUMAT AM', y);
+  const tinggiA = 20;
+  lukisSempadanBadan(doc, y, tinggiA);
+  const infoA = [
+    ['Nama Warden', l.NamaWarden], ['No. Gaji', l.NoGaji],
+    ['Tarikh', l.Tarikh], ['Sesi Rondaan', l.SesiRondaan],
+    ['Masa Mula', l.MasaMula], ['Masa Tamat', l.MasaTamat || '-']
+  ];
+  doc.setFontSize(9);
+  infoA.forEach(function (pair, idx) {
+    const kolX = idx % 2 === 0 ? MARGIN_X + 4 : MARGIN_X + 94;
+    const baris = Math.floor(idx / 2);
+    const yy = y + 6 + baris * 6;
+    doc.setTextColor.apply(doc, PDF_KELABU);
     doc.setFont(undefined, 'normal');
-    const aduanLines = doc.splitTextToSize(String(l.Aduan), 180);
-    doc.text(aduanLines, 14, y);
-    y += aduanLines.length * 5 + 3;
-  }
-  if (l.Catatan) {
+    doc.text(pair[0], kolX, yy);
+    doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    doc.text('Catatan:', 14, y);
-    y += 5;
+    doc.text(String(pair[1]), kolX + 82, yy, { align: 'right' });
+  });
+  y += tinggiA + 6;
+
+  // ===== SEKSYEN B: LOG PEMERIKSAAN =====
+  y = lukisTajukSeksyen(doc, 'B', 'LOG PEMERIKSAAN', y);
+  const kategoriB = [
+    ['KESELAMATAN FIZIKAL', [['Pagar Dikunci', l.PagarKunci], ['Lampu Bilik', l.LampuBilik], ['Lampu Koridor', l.LampuKoridor], ['Semakan Kebakaran', l.SemakKebakaran]]],
+    ['KESEJAHTERAAN PELAJAR', [['Minum Malam Diberi', l.MinumMalam], ['Dalam Dorm', l.DalamDorm], ['Tiada Bising', l.TiadaBising], ['Bersedia Tidur', l.BersediaTidur], ['Tiada Insiden Buli', l.TiadaBuli]]],
+    ['KEMUDAHAN', [['Tandas & Bilik Air Bersih', l.TandasBersih]]]
+  ];
+  const barisSetiapKategori = kategoriB.map(function (k) { return Math.ceil(k[1].length / 2); });
+  const tinggiB = 4 + kategoriB.reduce(function (sum, k, i) { return sum + 6 + barisSetiapKategori[i] * 5.5 + 3; }, 0);
+  lukisSempadanBadan(doc, y, tinggiB);
+  let yB = y + 5;
+  kategoriB.forEach(function (kategori) {
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor.apply(doc, PDF_BIRU);
+    doc.text(kategori[0], MARGIN_X + 4, yB);
+    doc.setDrawColor.apply(doc, PDF_BIRU_MUDA);
+    doc.line(MARGIN_X + 4, yB + 1.2, MARGIN_X + LEBAR - 4, yB + 1.2);
+    yB += 5.5;
+    doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
-    const catatanLines = doc.splitTextToSize(String(l.Catatan), 180);
-    doc.text(catatanLines, 14, y);
-    y += catatanLines.length * 5 + 3;
+    doc.setFontSize(8.5);
+    kategori[1].forEach(function (item, idx) {
+      const kolX = idx % 2 === 0 ? MARGIN_X + 4 : MARGIN_X + 94;
+      if (idx % 2 === 0 && idx > 0) yB += 5.5;
+      doc.text(item[0], kolX, yB);
+      lukisLencanaStatus(doc, item[1], kolX + 68, yB);
+    });
+    yB += 5.5 + 3;
+  });
+  y += tinggiB + 6;
+
+  // Semak overflow sebelum Seksyen C
+  if (y > 250) { doc.addPage(); y = 15; }
+
+  // ===== SEKSYEN C: KESIHATAN & ADUAN =====
+  const adaAduan = !!l.Aduan;
+  const adaCatatan = !!l.Catatan;
+  const aduanLines = adaAduan ? doc.splitTextToSize(String(l.Aduan), LEBAR - 16) : [];
+  const catatanLines = adaCatatan ? doc.splitTextToSize(String(l.Catatan), LEBAR - 8) : [];
+  const tinggiC = 8 + (adaAduan ? 6 + aduanLines.length * 4.2 + 3 : 0) + (adaCatatan ? 5 + catatanLines.length * 4.2 : 0);
+  y = lukisTajukSeksyen(doc, 'C', 'KESIHATAN & ADUAN', y);
+  lukisSempadanBadan(doc, y, tinggiC);
+  let yC = y + 6;
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text('Bilangan Pelajar Sakit/Tidak Sihat: ', MARGIN_X + 4, yC);
+  doc.setFont(undefined, 'bold');
+  doc.text(String(l.BilPelajarSakit || 0) + ' orang', MARGIN_X + 68, yC);
+  doc.setFont(undefined, 'normal');
+  yC += 6;
+  if (adaAduan) {
+    doc.setFont(undefined, 'bold');
+    doc.text('Aduan / Insiden:', MARGIN_X + 4, yC);
+    yC += 4.5;
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor.apply(doc, PDF_KELABU_TERANG);
+    doc.rect(MARGIN_X + 4, yC - 3.5, LEBAR - 8, aduanLines.length * 4.2 + 4, 'FD');
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(8.5);
+    doc.text(aduanLines, MARGIN_X + 7, yC + 1);
+    yC += aduanLines.length * 4.2 + 6;
+  }
+  if (adaCatatan) {
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text('Catatan:', MARGIN_X + 4, yC);
+    yC += 4.5;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(8.5);
+    doc.text(catatanLines, MARGIN_X + 4, yC);
+  }
+  y += tinggiC + 6;
+
+  // ===== SEKSYEN D: KECEMASAN (bersyarat) =====
+  if (l.Kecemasan === 'YA - SEGERA') {
+    if (y > 260) { doc.addPage(); y = 15; }
+    doc.setFillColor.apply(doc, PDF_MERAH_BG);
+    doc.setDrawColor.apply(doc, PDF_MERAH);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(MARGIN_X, y, LEBAR, 12, 2, 2, 'FD');
+    doc.setLineWidth(0.2);
+    doc.setTextColor.apply(doc, PDF_MERAH);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(10.5);
+    doc.text('⚠ LAPORAN INI DITANDAKAN SEBAGAI KECEMASAN', MARGIN_X + LEBAR / 2, y + 7.5, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    y += 12 + 6;
   }
 
-  // Sisipkan gambar sebenar
+  // ===== SEKSYEN E: GAMBAR BUKTI =====
   const urls = (l.GambarURL || '').split(',').map(function (u) { return u.trim(); }).filter(Boolean);
   if (urls.length > 0) {
+    if (y > 240) { doc.addPage(); y = 15; }
+    y = lukisTajukSeksyen(doc, 'E', 'GAMBAR BUKTI (' + urls.length + ')', y);
     y += 4;
-    doc.setFont(undefined, 'bold');
-    doc.text('Gambar Bukti (' + urls.length + '):', 14, y);
-    y += 6;
-    doc.setFont(undefined, 'normal');
 
-    const gambarW = 85, gambarH = 65, gap = 8;
-    let x = 14;
+    const gambarW = 85, gambarH = 62, gap = 10;
+    let x = MARGIN_X;
     for (let i = 0; i < urls.length; i++) {
-      if (y + gambarH > 280) { doc.addPage(); y = 18; }
+      if (y + gambarH + 6 > 280) { doc.addPage(); y = 15; x = MARGIN_X; }
+      doc.setDrawColor.apply(doc, PDF_KELABU_TERANG);
+      doc.rect(x, y, gambarW, gambarH);
       try {
         const dataUrl = await urlKeDataURL(urls[i]);
-        doc.addImage(dataUrl, 'JPEG', x, y, gambarW, gambarH);
+        doc.addImage(dataUrl, 'JPEG', x + 1, y + 1, gambarW - 2, gambarH - 2);
       } catch (e) {
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(x, y, gambarW, gambarH);
         doc.setFontSize(8);
-        doc.text('Gagal muat gambar', x + 10, y + gambarH / 2);
+        doc.setTextColor.apply(doc, PDF_KELABU);
+        doc.text('Gagal muat gambar', x + gambarW / 2, y + gambarH / 2, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
       }
-      if (x === 14) {
-        x = 14 + gambarW + gap;
+      doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, PDF_KELABU);
+      doc.text('Gambar ' + (i + 1), x + 2, y + gambarH + 4);
+      doc.setTextColor(0, 0, 0);
+
+      if (x === MARGIN_X) {
+        x = MARGIN_X + gambarW + gap;
       } else {
-        x = 14;
-        y += gambarH + gap;
+        x = MARGIN_X;
+        y += gambarH + 9;
       }
     }
+    if (urls.length % 2 !== 0) y += gambarH + 9;
+    y += 3;
+  }
+
+  // ===== SEKSYEN F: PENGESAHAN =====
+  if (y > 235) { doc.addPage(); y = 15; }
+  y = lukisTajukSeksyen(doc, 'F', 'PENGESAHAN', y);
+  const tinggiF = 42;
+  lukisSempadanBadan(doc, y, tinggiF);
+
+  const kolKiriX = MARGIN_X + LEBAR * 0.27;
+  const kolKananX = MARGIN_X + LEBAR * 0.73;
+
+  doc.setFontSize(7.5);
+  doc.setTextColor.apply(doc, PDF_KELABU);
+  doc.text('DISEDIAKAN OLEH', kolKiriX, y + 8, { align: 'center' });
+  doc.text('DISAHKAN OLEH', kolKananX, y + 8, { align: 'center' });
+
+  // Ruang cop rasmi (bulatan bertitik)
+  doc.setDrawColor.apply(doc, PDF_KELABU_TERANG);
+  doc.setLineDashPattern([1, 1], 0);
+  doc.circle(kolKananX, y + 20, 11);
+  doc.setLineDashPattern([], 0);
+  doc.setFontSize(6.5);
+  doc.text('RUANG COP RASMI', kolKananX, y + 19, { align: 'center' });
+  doc.text('MRSM SAS', kolKananX, y + 22, { align: 'center' });
+
+  // Garis tandatangan
+  doc.setDrawColor(60, 60, 60);
+  doc.line(kolKiriX - 30, y + 33, kolKiriX + 30, y + 33);
+  doc.line(kolKananX - 30, y + 33, kolKananX + 30, y + 33);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text(l.NamaWarden, kolKiriX, y + 37.5, { align: 'center' });
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor.apply(doc, PDF_KELABU);
+  doc.text('Warden Malam', kolKiriX, y + 41, { align: 'center' });
+
+  doc.setFontSize(7.5);
+  doc.text('Pengetua / Timbalan Pengetua', kolKananX, y + 37.5, { align: 'center' });
+  doc.text('MRSM Sultan Azlan Shah', kolKananX, y + 40.5, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+
+  // ===== FOOTER (semua muka surat) =====
+  const jumlahMukaSurat = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= jumlahMukaSurat; p++) {
+    doc.setPage(p);
+    const yFooter = 289;
+    doc.setDrawColor.apply(doc, PDF_KELABU_TERANG);
+    doc.line(MARGIN_X, yFooter - 3, MARGIN_X + LEBAR, yFooter - 3);
+    doc.setFontSize(7);
+    doc.setTextColor.apply(doc, PDF_KELABU);
+    doc.text('Unit Pembangunan Pelajar & Unit ICT — Sistem eRondaan Malam', MARGIN_X, yFooter);
+    doc.text('Muka Surat ' + p + ' daripada ' + jumlahMukaSurat, MARGIN_X + LEBAR, yFooter, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
   }
 
   const namaFail = 'Laporan_' + l.NamaWarden.replace(/[^a-zA-Z0-9]/g, '_') + '_' + l.Tarikh + '.pdf';
